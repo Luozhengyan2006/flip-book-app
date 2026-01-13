@@ -157,6 +157,13 @@ def extract_image_from_response(data):
     
     return None
 
+def generate_image(prompt, size="1024x1024"):
+    """根据配置选择图片生成方法"""
+    if API_TYPE == 'custom':
+        return generate_image_custom_api(prompt, size)
+    else:
+        return create_placeholder_image(prompt)
+
 def create_placeholder_image(text, size=(1024, 1024), frame_number=1):
     """创建占位图片（Vercel优化版）"""
     from PIL import ImageDraw, ImageFont
@@ -306,17 +313,28 @@ def generate():
         scenes = split_story_into_scenes(text, num_frames)
         print(f"场景分割完成，共 {len(scenes)} 个场景")
         
-        # 生成图片（直接使用占位图，避免API超时）
+        # 生成图片
         images = []
         scene_info = []
         
         for i, scene in enumerate(scenes):
             print(f"正在生成第 {i+1}/{len(scenes)} 帧: {scene[:30]}...")
             try:
-                # 使用占位图片（Vercel环境稳定）
+                # 尝试使用API生成图片
+                img = generate_image(scene)
+                images.append(img)
+                print(f"✓ 第 {i+1} 帧生成成功（API）")
+                scene_info.append({
+                    'frame': i + 1,
+                    'scene': scene,
+                    'status': 'success'
+                })
+            except Exception as e:
+                print(f"⚠ API失败，使用占位图: {e}")
+                # API失败时使用占位图片
                 img = create_placeholder_image(scene, frame_number=i+1)
                 images.append(img)
-                print(f"✓ 第 {i+1} 帧生成成功")
+                print(f"✓ 第 {i+1} 帧生成成功（占位图）")
                 scene_info.append({
                     'frame': i + 1,
                     'scene': scene,
