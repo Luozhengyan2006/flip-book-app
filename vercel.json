@@ -13,12 +13,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "API_TYPE": "custom",
-    "CUSTOM_API_KEY": "@custom_api_key",
-    "CUSTOM_API_URL": "https://api.deapi.ai/v1/images/generate"
-  }
+  ]
 }

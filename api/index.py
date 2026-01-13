@@ -253,13 +253,13 @@ def generate():
         # 分割场景
         scenes = split_story_into_scenes(text, num_frames)
         
-        # 生成图片（在内存中处理，不保存到磁盘）
+        # 生成图片（直接使用占位图，避免API超时）
         images = []
         scene_info = []
         
         for i, scene in enumerate(scenes):
             try:
-                # 直接使用占位图片（避免API调用超时）
+                # 使用占位图片（Vercel环境稳定）
                 img = create_placeholder_image(scene, frame_number=i+1)
                 images.append(img)
                 scene_info.append({
@@ -268,7 +268,8 @@ def generate():
                     'status': 'placeholder'
                 })
             except Exception as e:
-                img = create_placeholder_image(f"Error: {str(e)}", frame_number=i+1)
+                # 如果连占位图都失败，创建最简单的图片
+                img = Image.new('RGB', (1024, 1024), color=(100, 140, 180))
                 images.append(img)
                 scene_info.append({
                     'frame': i + 1,
@@ -277,11 +278,13 @@ def generate():
                     'error': str(e)
                 })
         
-        # 生成GIF（保存到内存）
+        # 生成GIF到内存
         gif_buffer = BytesIO()
         if images:
             size = images[0].size
             resized_images = [img.resize(size, Image.Resampling.LANCZOS) if img.size != size else img for img in images]
+            
+            # 保存GIF
             resized_images[0].save(
                 gif_buffer,
                 format='GIF',
@@ -289,11 +292,11 @@ def generate():
                 append_images=resized_images[1:],
                 duration=frame_duration,
                 loop=0,
-                optimize=False
+                optimize=True  # 优化文件大小
             )
             gif_buffer.seek(0)
         
-        # 返回base64编码的GIF
+        # 返回base64
         import base64
         gif_base64 = base64.b64encode(gif_buffer.getvalue()).decode('utf-8')
         
@@ -305,7 +308,12 @@ def generate():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_detail = traceback.format_exc()
+        return jsonify({
+            'error': str(e),
+            'detail': error_detail
+        }), 500
 
 @app.route('/check_api')
 def check_api():
@@ -317,5 +325,10 @@ def check_api():
         'message': f'API配置: {API_TYPE}' if has_api_key else '演示模式'
     })
 
-# Vercel需要这个
-app = app
+# Vercel serverless handler
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# 必须导出为handler供Vercel使用
+def handler(environ, start_response):
+    return app(environ, start_response)
