@@ -358,10 +358,5 @@ def check_api():
         'message': f'API配置: {API_TYPE}' if has_api_key else '演示模式'
     })
 
-# Vercel serverless handler
-from werkzeug.middleware.proxy_fix import ProxyFix
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-
-# 必须导出为handler供Vercel使用
-def handler(environ, start_response):
-    return app(environ, start_response)
+# Vercel需要直接导出app
+app = app
