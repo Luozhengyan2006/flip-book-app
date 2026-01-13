@@ -16,9 +16,15 @@ TMP_DIR = tempfile.gettempdir()
 app.config['UPLOAD_FOLDER'] = os.path.join(TMP_DIR, 'generated')
 app.config['OUTPUT_FOLDER'] = os.path.join(TMP_DIR, 'outputs')
 
-# 确保临时文件夹存在
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+# 延迟创建文件夹（只在需要时创建，避免导入时错误）
+def ensure_dirs():
+    """确保必要的目录存在"""
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
+    except OSError:
+        # 如果创建失败，使用临时目录
+        pass
 
 # API配置
 API_TYPE = os.environ.get('API_TYPE', 'custom')
@@ -233,7 +239,34 @@ def create_gif_from_images(images, output_path, duration=1000):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    """首页"""
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        # 如果模板加载失败，返回简单HTML
+        return f'''
+        # 确保目录存在
+        ensure_dirs()
+        
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+            <meta charset="UTF-8">
+            <title>文本转定格动画</title>
+            <style>
+                body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }}
+                h1 {{ color: #333; }}
+                .status {{ padding: 10px; background: #f0f0f0; border-radius: 5px; }}
+            </style>
+        </head>
+        <body>
+            <h1>📽️ 文本转定格动画</h1>
+            <div class="status">应用正在运行中...</div>
+            <p>模板加载失败: {str(e)}</p>
+            <p>请访问 <code>/check_api</code> 检查API状态</p>
+        </body>
+        </html>
+        '''
 
 @app.route('/generate', methods=['POST'])
 def generate():
