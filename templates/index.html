@@ -220,14 +220,23 @@
             const resultSection = document.getElementById('resultSection');
             resultSection.style.display = 'block';
 
-            // 设置GIF
-            currentGifUrl = '/outputs/' + data.output_file;
+            // 设置GIF（支持base64和URL）
             const gifImg = document.getElementById('resultGif');
             document.getElementById('gifStatus').textContent = '加载中...';
-            gifImg.src = currentGifUrl + '?t=' + new Date().getTime();
             
-            document.getElementById('downloadBtn').href = currentGifUrl;
-            document.getElementById('downloadBtn').download = data.output_file;
+            if (data.gif_data) {
+                // Vercel版本：使用base64数据
+                currentGifUrl = data.gif_data;
+                gifImg.src = currentGifUrl;
+                document.getElementById('downloadBtn').href = currentGifUrl;
+                document.getElementById('downloadBtn').download = 'animation.gif';
+            } else if (data.output_file) {
+                // 本地版本：使用文件URL
+                currentGifUrl = '/outputs/' + data.output_file;
+                gifImg.src = currentGifUrl + '?t=' + new Date().getTime();
+                document.getElementById('downloadBtn').href = currentGifUrl;
+                document.getElementById('downloadBtn').download = data.output_file;
+            }
 
             // 显示场景信息
             const scenesInfo = document.getElementById('scenesInfo');
