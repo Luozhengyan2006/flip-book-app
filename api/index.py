@@ -158,7 +158,7 @@ def extract_image_from_response(data):
     return None
 
 def create_placeholder_image(text, size=(1024, 1024), frame_number=1):
-    """创建占位图片"""
+    """创建占位图片（Vercel优化版）"""
     from PIL import ImageDraw, ImageFont
     
     colors = [
@@ -172,45 +172,61 @@ def create_placeholder_image(text, size=(1024, 1024), frame_number=1):
     d = ImageDraw.Draw(img)
     
     # 渐变效果
-    for i in range(size[1]):
+    for i in range(0, size[1], 2):  # 每2像素一条线，提高性能
         alpha = i / size[1]
         new_color = tuple(int(c * (1 - alpha * 0.3)) for c in bg_color)
-        d.line([(0, i), (size[0], i)], fill=new_color)
+        d.line([(0, i), (size[0], i)], fill=new_color, width=2)
     
-    # 字体（Vercel可能没有中文字体，使用默认）
-    try:
-        font_frame = ImageFont.truetype("arial.ttf", 40)
-        font_text = ImageFont.truetype("arial.ttf", 48)
-    except:
-        font_frame = ImageFont.load_default()
-        font_text = ImageFont.load_default()
+    # 使用PIL的基本绘制功能，不依赖字体文件
+    # 绘制帧号（大字）
+    frame_text = f"=== Frame {frame_number} ==="
+    text_color = (255, 255, 255)
     
-    # 绘制帧号
-    frame_text = f"Frame {frame_number}"
-    try:
-        bbox = d.textbbox((0, 0), frame_text, font=font_frame)
-        text_width = bbox[2] - bbox[0]
-        d.text(((size[0] - text_width) // 2, 80), frame_text, fill=(255, 255, 255), font=font_frame)
-    except:
-        d.text((size[0] // 2 - 100, 80), frame_text, fill=(255, 255, 255))
+    # 由于没有字体，使用简单的矩形和文字组合
+    # 在顶部绘制帧号背景
+    d.rectangle([(size[0]//2 - 200, 50), (size[0]//2 + 200, 130)], 
+                fill=(0, 0, 0, 128), outline=(255, 255, 255), width=3)
     
-    # 绘制文本（简化版）
-    display_text = text[:50] if len(text) > 50 else text
-    try:
-        bbox = d.textbbox((0, 0), display_text, font=font_text)
-        text_width = bbox[2] - bbox[0]
-        d.text(((size[0] - text_width) // 2, size[1] // 2), display_text, fill=(255, 255, 255), font=font_text)
-    except:
-        d.text((100, size[1] // 2), display_text, fill=(255, 255, 255))
+    # 使用load_default但放大绘制（多次绘制模拟粗体）
+    font = ImageFont.load_default()
     
-    # 提示
-    tip = "(Demo Mode)"
-    try:
-        bbox = d.textbbox((0, 0), tip, font=font_frame)
-        text_width = bbox[2] - bbox[0]
-        d.text(((size[0] - text_width) // 2, size[1] - 100), tip, fill=(200, 200, 200), font=font_frame)
-    except:
-        d.text((size[0] // 2 - 100, size[1] - 100), tip, fill=(200, 200, 200))
+    # 帧号 - 多次绘制模拟放大和加粗效果
+    frame_y = 70
+    for offset_x in range(-2, 3):
+        for offset_y in range(-2, 3):
+            d.text((size[0]//2 - 100 + offset_x, frame_y + offset_y), 
+                   frame_text, fill=text_color, font=font)
+    
+    # 场景文本 - 中间位置
+    # 分行显示（每行20个字符）
+    lines = []
+    display_text = text[:100]  # 最多100字符
+    for i in range(0, len(display_text), 20):
+        lines.append(display_text[i:i+20])
+    
+    # 绘制文本背景
+    text_bg_height = len(lines) * 60 + 40
+    d.rectangle([(100, size[1]//2 - text_bg_height//2), 
+                 (size[0] - 100, size[1]//2 + text_bg_height//2)],
+                fill=(0, 0, 0, 100), outline=(255, 255, 255), width=2)
+    
+    # 绘制每行文本
+    y_pos = size[1]//2 - text_bg_height//2 + 20
+    for line in lines[:5]:  # 最多5行
+        # 多次绘制模拟加粗
+        for offset_x in range(-1, 2):
+            for offset_y in range(-1, 2):
+                d.text((150 + offset_x, y_pos + offset_y), 
+                       line, fill=text_color, font=font)
+        y_pos += 60
+    
+    # 底部提示
+    tip_text = "[ Demo Mode - Placeholder Image ]"
+    tip_y = size[1] - 100
+    for offset_x in range(-1, 2):
+        for offset_y in range(-1, 2):
+            d.text((size[0]//2 - 180 + offset_x, tip_y + offset_y), 
+                   tip_text, fill=(200, 200, 200), font=font)
     
     return img
 
