@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本转定格动画</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📽️ 文本转定格动画</h1>
+            <p class="subtitle">输入故事文本，AI生成定格动画短片</p>
+        </header>
+
+        <div class="api-status" id="apiStatus">
+            <span class="loading">检查API状态...</span>
+        </div>
+
+        <div class="test-section">
+            <button onclick="testGenerate()" class="test-btn">🧪 测试生成功能</button>
+        </div>
+
+        <div class="input-section">
+            <label for="storyText">输入你的故事文本:</label>
+            <textarea 
+                id="storyText" 
+                rows="6" 
+                placeholder="例如：一只小猫在花园里玩耍。它追逐着蝴蝶。突然发现了一朵美丽的花。小猫闻了闻花香。最后满意地躺在草地上休息。"
+            ></textarea>
+
+            <div class="example-buttons">
+                <button onclick="fillExample1()" class="example-btn">示例1：上楼喝水</button>
+                <button onclick="fillExample2()" class="example-btn">示例2：小猫玩耍</button>
+            </div>
+
+            <div class="options">
+                <div class="option-group">
+                    <label for="numFrames">帧数 (2-10):</label>
+                    <input type="number" id="numFrames" min="2" max="10" value="5">
+                </div>
+
+                <div class="option-group">
+                    <label for="frameDuration">每帧时长 (毫秒):</label>
+                    <input type="number" id="frameDuration" min="500" max="5000" step="100" value="1000">
+                </div>
+            </div>
+
+            <button id="generateBtn" onclick="generateAnimation()">
+                🎬 生成动画
+            </button>
+        </div>
+
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p class="progress-text" id="progressText">正在处理...</p>
+        </div>
+
+        <div class="result-section" id="resultSection" style="display: none;">
+            <h2>✨ 生成的动画</h2>
+            <div class="animation-container">
+                <img id="resultGif" src="" alt="Generated Animation" onload="onGifLoaded()" onerror="onGifError()">
+                <div class="gif-controls">
+                    <button onclick="reloadGif()" class="control-btn">🔄 重新加载</button>
+                    <span id="gifStatus" class="gif-status">加载中...</span>
+                </div>
+            </div>
+            <div class="scenes-info" id="scenesInfo"></div>
+            <div class="action-buttons">
+                <a id="downloadBtn" href="" download class="btn-secondary">⬇️ 下载动画</a>
+                <button onclick="openInNewTab()" class="btn-secondary">🔍 新窗口打开</button>
+                <button onclick="resetForm()" class="btn-secondary">🔄 重新生成</button>
+            </div>
+        </div>
+
+        <div class="error-section" id="errorSection" style="display: none;">
+            <p class="error-message" id="errorMessage"></p>
+            <button onclick="resetForm()" class="btn-secondary">重试</button>
+        </div>
+
+        <footer>
+            <p>💡 提示：使用DALL-E API生成图片，需要设置OPENAI_API_KEY环境变量</p>
+        </footer>
+    </div>
+
+    <script>
+        // 检查API状态
+        async function checkApiStatus() {
+            try {
+                const response = await fetch('/check_api');
+                const data = await response.json();
+                const statusDiv = document.getElementById('apiStatus');
+                
+                if (data.has_api_key) {
+                    statusDiv.innerHTML = '<span class="status-ok">✓ API密钥已配置</span>';
+                    statusDiv.className = 'api-status status-ok';
+                } else {
+                    statusDiv.innerHTML = '<span class="status-warning">⚠️ 未设置API密钥，将使用占位图片演示</span>';
+                    statusDiv.className = 'api-status status-warning';
+                }
+            } catch (error) {
+                console.error('检查API状态失败:', error);
+            }
+        }
+
+        // 页面加载时检查API状态
+        checkApiStatus();
+
+        function fillExample1() {
+            document.getElementById('storyText').value = '我走到楼梯前。我开始上楼梯。我到达二楼。我走进厨房。我拿起水杯。我打开水龙头。我接满水。我喝了一口水。我感到很满足。';
+            document.getElementById('numFrames').value = 5;
+        }
+
+        function fillExample2() {
+            document.getElementById('storyText').value = '一只小猫在花园里玩耍。它追逐着蝴蝶。突然发现了一朵美丽的花。小猫闻了闻花香。最后满意地躺在草地上休息。';
+            document.getElementById('numFrames').value = 5;
+        }
+
+        async function testGenerate() {
+            try {
+                const response = await fetch('/test_generate');
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('✓ 测试成功！正在打开测试动画...');
+                    window.open(data.url, '_blank');
+                } else {
+                    alert('❌ 测试失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('❌ 测试失败: ' + error.message);
+            }
+        }
+
+        async function generateAnimation() {
+            const text = document.getElementById('storyText').value.trim();
+            const numFrames = parseInt(document.getElementById('numFrames').value);
+            const frameDuration = parseInt(document.getElementById('frameDuration').value);
+
+            if (!text) {
+                alert('请输入故事文本！');
+                return;
+            }
+
+            // 隐藏结果和错误区域
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'none';
+            
+            // 显示进度区域
+            const progressSection = document.getElementById('progressSection');
+            progressSection.style.display = 'block';
+            
+            // 禁用生成按钮
+            const generateBtn = document.getElementById('generateBtn');
+            generateBtn.disabled = true;
+            generateBtn.textContent = '生成中...';
+
+            try {
+                // 模拟进度
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 5;
+                    if (progress >= 90) {
+                        clearInterval(progressInterval);
+                    }
+                    updateProgress(progress, '正在生成图片...');
+                }, 500);
+
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        num_frames: numFrames,
+                        frame_duration: frameDuration
+                    })
+                });
+
+                clearInterval(progressInterval);
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    updateProgress(100, '完成！');
+                    
+                    // 显示结果
+                    setTimeout(() => {
+                        displayResult(data);
+                    }, 500);
+                } else {
+                    throw new Error(data.error || '生成失败');
+                }
+
+            } catch (error) {
+                console.error('错误:', error);
+                showError(error.message);
+            } finally {
+                // 重新启用按钮
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🎬 生成动画';
+            }
+        }
+
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
+
+        let currentGifUrl = '';
+
+        function displayResult(data) {
+            // 隐藏进度
+            document.getElementById('progressSection').style.display = 'none';
+            
+            // 显示结果
+            const resultSection = document.getElementById('resultSection');
+            resultSection.style.display = 'block';
+
+            // 设置GIF
+            currentGifUrl = '/outputs/' + data.output_file;
+            const gifImg = document.getElementById('resultGif');
+            document.getElementById('gifStatus').textContent = '加载中...';
+            gifImg.src = currentGifUrl + '?t=' + new Date().getTime();
+            
+            document.getElementById('downloadBtn').href = currentGifUrl;
+            document.getElementById('downloadBtn').download = data.output_file;
+
+            // 显示场景信息
+            const scenesInfo = document.getElementById('scenesInfo');
+            let scenesHtml = '<h3>场景分解：</h3><ul class="scenes-list">';
+            data.scenes.forEach(scene => {
+                const statusIcon = scene.status === 'success' ? '✓' : '○';
+                scenesHtml += `<li><strong>第${scene.frame}帧:</strong> ${scene.scene} <span class="scene-status">${statusIcon}</span></li>`;
+            });
+            scenesHtml += '</ul>';
+            scenesInfo.innerHTML = scenesHtml;
+
+            // 滚动到结果
+            resultSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function onGifLoaded() {
+            document.getElementById('gifStatus').textContent = '✓ 加载成功';
+            document.getElementById('gifStatus').style.color = '#4caf50';
+        }
+
+        function onGifError() {
+            document.getElementById('gifStatus').textContent = '❌ 加载失败';
+            document.getElementById('gifStatus').style.color = '#f44336';
+        }
+
+        function reloadGif() {
+            const gifImg = document.getElementById('resultGif');
+            document.getElementById('gifStatus').textContent = '重新加载中...';
+            document.getElementById('gifStatus').style.color = '#666';
+            gifImg.src = currentGifUrl + '?t=' + new Date().getTime();
+        }
+
+        function openInNewTab() {
+            if (currentGifUrl) {
+                window.open(currentGifUrl, '_blank');
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('errorSection').style.display = 'block';
+            document.getElementById('errorMessage').textContent = '❌ ' + message;
+        }
+
+        function resetForm() {
+            document.getElementById('errorSection').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('progressSection').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
