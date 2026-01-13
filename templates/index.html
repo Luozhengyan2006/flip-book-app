@@ -64,7 +64,7 @@
         <div class="result-section" id="resultSection" style="display: none;">
             <h2>✨ 生成的动画</h2>
             <div class="animation-container">
-                <img id="resultGif" src="" alt="Generated Animation" onload="onGifLoaded()" onerror="onGifError()">
+                <img id="resultGif" src="" alt="Generated Animation">
                 <div class="gif-controls">
                     <button onclick="reloadGif()" class="control-btn">🔄 重新加载</button>
                     <span id="gifStatus" class="gif-status">加载中...</span>
@@ -263,6 +263,17 @@
             // 设置GIF（支持base64和URL）
             const gifImg = document.getElementById('resultGif');
             document.getElementById('gifStatus').textContent = '加载中...';
+            
+            // 设置事件监听器
+            gifImg.onload = function() {
+                document.getElementById('gifStatus').textContent = '✓ 加载成功';
+                document.getElementById('gifStatus').style.color = '#4caf50';
+            };
+            gifImg.onerror = function() {
+                document.getElementById('gifStatus').textContent = '❌ 加载失败';
+                document.getElementById('gifStatus').style.color = '#f44336';
+                console.error('GIF加载失败，URL:', this.src);
+            };
             
             if (data.gif_data) {
                 // Vercel版本：使用base64数据
