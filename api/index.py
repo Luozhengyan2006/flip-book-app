@@ -285,22 +285,26 @@ def generate():
         
         # 分割场景
         scenes = split_story_into_scenes(text, num_frames)
+        print(f"场景分割完成，共 {len(scenes)} 个场景")
         
         # 生成图片（直接使用占位图，避免API超时）
         images = []
         scene_info = []
         
         for i, scene in enumerate(scenes):
+            print(f"正在生成第 {i+1}/{len(scenes)} 帧: {scene[:30]}...")
             try:
                 # 使用占位图片（Vercel环境稳定）
                 img = create_placeholder_image(scene, frame_number=i+1)
                 images.append(img)
+                print(f"✓ 第 {i+1} 帧生成成功")
                 scene_info.append({
                     'frame': i + 1,
                     'scene': scene,
                     'status': 'placeholder'
                 })
             except Exception as e:
+                print(f"✗ 第 {i+1} 帧生成失败: {e}")
                 # 如果连占位图都失败，创建最简单的图片
                 img = Image.new('RGB', (1024, 1024), color=(100, 140, 180))
                 images.append(img)
