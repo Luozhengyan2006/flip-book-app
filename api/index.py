@@ -271,11 +271,14 @@ def index():
 @app.route('/generate', methods=['POST'])
 def generate():
     """主要端点：生成动画GIF"""
+    print("=== 开始生成动画 ===")
     try:
         data = request.get_json()
+        print(f"收到请求: {data}")
         text = data.get('text', '').strip()
         num_frames = int(data.get('num_frames', 5))
         frame_duration = int(data.get('frame_duration', 1000))
+        print(f"文本: {text[:50]}..., 帧数: {num_frames}, 时长: {frame_duration}ms")
         
         if not text:
             return jsonify({'error': '请输入故事文本'}), 400
@@ -316,6 +319,7 @@ def generate():
                 })
         
         # 生成GIF到内存
+        print("开始合成GIF...")
         gif_buffer = BytesIO()
         if images:
             size = images[0].size
@@ -332,17 +336,21 @@ def generate():
                 optimize=True  # 优化文件大小
             )
             gif_buffer.seek(0)
+            print(f"✓ GIF合成成功，大小: {len(gif_buffer.getvalue())} bytes")
         
         # 返回base64
         import base64
         gif_base64 = base64.b64encode(gif_buffer.getvalue()).decode('utf-8')
+        print(f"✓ Base64编码完成，长度: {len(gif_base64)}")
         
-        return jsonify({
+        result = {
             'success': True,
             'gif_data': f'data:image/gif;base64,{gif_base64}',
             'scenes': scene_info,
             'num_frames': len(images)
-        })
+        }
+        print("=== 生成完成，返回结果 ===")
+        return jsonify(result)
         
     except Exception as e:
         import traceback
