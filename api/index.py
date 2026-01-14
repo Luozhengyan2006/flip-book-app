@@ -27,10 +27,10 @@ def ensure_dirs():
         pass
 
 # API配置
-API_TYPE = os.environ.get('API_TYPE', 'custom')
+# 默认使用占位图片（演示模式），如需使用真实API请设置环境变量
+API_TYPE = os.environ.get('API_TYPE', 'placeholder')  # 'openai', 'custom', 'placeholder'
 CUSTOM_API_KEY = os.environ.get('CUSTOM_API_KEY', '2182|TmECdKSqXp9UzkTYdxvVdfLoPrtzPsnmWt74yPU88f863ab9')
-# 尝试不同的endpoint（deAPI文档不明确）
-CUSTOM_API_URL = os.environ.get('CUSTOM_API_URL', 'https://api.deapi.ai/generate')  # 修改路径
+CUSTOM_API_URL = os.environ.get('CUSTOM_API_URL', 'https://api.deapi.ai/generate')
 
 # OpenAI客户端
 client = None
